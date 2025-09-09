@@ -41,16 +41,16 @@ with st.form("four_year_selection"):
 
     st.form_submit_button("Select majors")
 
+
 with st.form("major_selection"):
     for fy_school in four_year_selection:
         st.multiselect(fy_school['name'],
-                       app_functions.get_majors_data(cc_option['id'],fy_school['id'],year_id),
-                       key=fy_school['code'],
-                       format_func=app_functions.display_label_major)
+                    app_functions.get_majors_data(cc_option['id'],fy_school['id'],year_id),
+                    key=fy_school['code'],
+                    format_func=app_functions.display_label_major)
 
     major_submit = st.form_submit_button("Submit")
 
-#st.write(st.session_state)
 
 if major_submit:
     #Create cc_to_fy_dict
@@ -102,30 +102,42 @@ if major_submit:
                             if attribution not in cc_to_fy_dict[cc_course_name][fy_code][major_label]["attributions"]:
                                 cc_to_fy_dict[cc_course_name][fy_code][major_label]["attributions"] += [attribution]
                                                                                                         
-    #Make datatable                                                                                                    
     rows = []
 
     for cc_course, fys in cc_to_fy_dict.items():
-        row = {cc_code: cc_course}  # Keep first column as single-level
+        row = {cc_code: cc_course}
         for fy, majors_dict in fys.items():
             for major, details in majors_dict.items():
-                col_course = (fy, major, "Course")
-                col_attr = (fy, major, "Notes")
-                row[col_course] = ", ".join(details["course"])
-                row[col_attr] = ". ".join(details["attributions"])
+                row[(fy, major, "Course")] = ", ".join(details["course"])
+                row[(fy, major, "Notes")] = ". ".join(details["attributions"])
         rows.append(row)
 
     df = pd.DataFrame(rows)
 
     first_col = df.pop(cc_code)
 
-    df.columns = pd.MultiIndex.from_tuples(df.columns, names=["FY", "Major", "Type"])
+    multi_cols = pd.MultiIndex.from_tuples(
+        [c for c in df.columns if isinstance(c, tuple)],
+        names=["FY", "Major", "Type"]
+    )
 
+    df.columns = multi_cols
     df.insert(0, cc_code, first_col)
 
     st.dataframe(df)
 
-    #st.write(st.session_state) 
+    # Download button
+
+    st.download_button(
+        label="Download CSV",
+        data=df.to_csv().encode("utf-8"),
+        file_name=f"%s.csv" % (cc_code),
+        mime="text/csv",
+        icon=":material/download:",
+    )
+
+
+    st.write("For more details, click the following to see your college's articulation for your school and major on Assist:") 
 
     # Button to Assist URL
     for fy_school in four_year_selection:
@@ -138,15 +150,4 @@ if major_submit:
             st.link_button(f"%s %s" % (fy_code, major_label),
                         f"https://assist.org/transfer/results?year=%s&institution=%d&agreement=%d&agreementType=to&viewAgreementsOptions=false&view=agreement&viewBy=major&viewSendingAgreements=false&viewByKey=%s"
                         % (year_id, cc_id,fy_id,major_key))
-
-
-    # Download button
-
-    st.download_button(
-        label="Download CSV",
-        data=df.to_csv().encode("utf-8"),
-        file_name=f"%s.csv" % (cc_code),
-        mime="text/csv",
-        icon=":material/download:",
-    )
 
