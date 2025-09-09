@@ -1,279 +1,134 @@
 import streamlit as st
 import pandas as pd
 import requests, json
+import app_functions
+
 
 st.set_page_config(page_title="See articulations from a CCC to multiple four-years",
                    page_icon="📈",
                    layout="wide")
 
-class School:
-    def __init__(self, name):
-        self.name = name
-        self.code = None
-        self.id = None
-        self.category = None
+st.markdown(
+        """
+        <style>
+        .stMultiSelect [data-baseweb=select] span{
+            max-width: 400px;
+        }""",
+        unsafe_allow_html=True,
+    )
 
-    def fillData(self):
-        for school in getCCDict():
-            if school["name"] == self.name:
-                self.code = school["code"]
-                self.id = school["id"]
-                self.category = school["category"]
-        
-
-    def __repr__(self):
-        return f"School(name={self.name}, code={self.code}, id={self.id}, category={self.category})"
-    
-class Major:
-    def __init__(self, name, key):
-        self.name = name
-        self.key = key
-
-    def __repr__(self):
-        return f"Major(name={self.name}, key={self.key}"
-
-
-@st.cache_data
-def getCCDict():
-    CCDict = pd.read_csv("data/schoolData.csv", header=0)
-    return CCDict.to_dict(orient='records')
-
-@st.cache_data
-def getCCNames():
-    CCNames = []
-    CCDict = getCCDict()
-    for school in CCDict:
-        if school['category']== 2:
-            CCNames.append(school['name'])
-    CCNames.sort()
-    return CCNames
-
-@st.cache_data
-def getCCNamesAndCodes():
-    CCNamesAndCodes = []
-    CCDict = getCCDict()
-    for row in CCDict:
-        if row['category'] == 2:
-            CCNamesAndCodes.append(f"{row['name']} ({row['code']})")
-    CCNamesAndCodes.sort()
-    return CCNamesAndCodes
-
-@st.cache_data
-def get4YNames():
-    CCNames = []
-    CCDict = getCCDict()
-    for row in CCDict:
-        if row['category'] != 2:
-            CCNames.append(row['name'])
-    CCNames.sort()
-    return CCNames
-
-@st.cache_data
-def getFYNamesAndCodes():
-    CCNamesAndCodes = []
-    CCDict = getCCDict()
-    for row in CCDict:
-        if row['category'] != 2:
-            CCNamesAndCodes.append(f"{row['name']} ({row['code']})")
-    CCNamesAndCodes.sort()
-    return CCNamesAndCodes
-
-@st.cache_data
-def getDictOfMajors(CCSchoolID, FYSchoolID, yearStart):
-    if not st.session_state.selectedCCC:
-        return None
-    yearID = yearStart - 1949
-    urlMajors = requests.get(f"https://assist.org/api/agreements?receivingInstitutionId={FYSchoolID}&sendingInstitutionId={CCSchoolID}&academicYearId={yearID}&categoryCode=major")
-    if urlMajors.status_code == 200:
-        majorsDict = urlMajors.json()["reports"]
-        return majorsDict
-    else:
-        raise ValueError('URL did not load')
-    
-@st.cache_data
-def getListOfMajors(majorDict):
-    if majorDict == None:
-        return None
-    majorsList = []
-    for major in majorDict:
-        majorsList +=  [Major(major['label'], major['key'][-36:])]
-    return majorsList
-
-@st.cache_data
-def getMajorNames(majorsList):
-    majorsNamesList = []
-    for major in majorsList:
-        majorsNamesList += [major.name]
-    majorsNamesList.sort()
-    return majorsNamesList
-
-@st.cache_data
-def getArticulatingCourses(year, CCSchoolID, FYSchoolID, MajorID):
-    yearID = year - 1949
-    coursesURL = requests.get(f"https://assist.org/api/articulation/Agreements?Key={yearID}/{CCSchoolID}/to/{FYSchoolID}/Major/{MajorID}")
-    coursesDict = json.loads(coursesURL.json()["result"]["articulations"])
-    return coursesDict
-
-@st.cache_data
-def getFullNameOfReceivingCourse(articulatingCourse):
-    if articulatingCourse["articulation"]["type"] == "Series":
-        return articulatingCourse["articulation"]["series"]["name"]
-    elif articulatingCourse["articulation"]["type"] == "Course":
-        return articulatingCourse["articulation"]["course"]["prefix"] + " " + articulatingCourse["articulation"]["course"]["courseNumber"]
-    elif articulatingCourse["articulation"]["type"] == "Requirement":
-        return articulatingCourse["articulation"]["requirement"]["name"]
-    else:
-        print(articulatingCourse["articulation"]["type"])
-        raise ValueError('Type of receiving course is not series or course.')
-
-@st.cache_data
-def getFullNameOfSendingCourse(articulatingCourse):
-    sendingCoursesList = []
-    if articulatingCourse["articulation"]["sendingArticulation"]["items"] != []:
-        for subgroupOfCourses in articulatingCourse["articulation"]["sendingArticulation"]["items"]:
-            subgroupCourseList = []
-            for sendingCourse in subgroupOfCourses["items"]:
-                subgroupCourseList += [sendingCourse["prefix"] + " " + sendingCourse["courseNumber"]]
-            sendingCoursesList += [f' {subgroupOfCourses["courseConjunction"].lower()} '.join(subgroupCourseList)]
-
-        return " or\n".join(sendingCoursesList)
-    
-@st.cache_data
-def processArticulatingCourse(artCourse):
-    receivingCourseName = getFullNameOfReceivingCourse(artCourse)
-    sendingCourseName = getFullNameOfSendingCourse(artCourse)
-
-st.title("One CCC to Many Four Year")
-st.write(
-    "Let's start building!."
-)
-# options = 
-
-#st.cache_data.clear()
+cc_to_fy_dict = {}
+# {"English 101": {"UCB":[{course:"ENG 01A", attributes:""}]}
 
 year = st.number_input("Enter start year", min_value=2023, value=2024, step=1)
-CCCoption = st.selectbox("CCC",
-                         getCCNames(),
+year_id = year - 1949
+
+cc_option = st.selectbox("CCC",
+                         app_functions.get_CC_data(),
+                         format_func=app_functions.display_names_codes,
                          index=None)
+if cc_option:
+    cc_code = cc_option["code"]
 
-selectedCCC = School(CCCoption)
-selectedCCC.fillData()
-if selectedCCC not in st.session_state:
-    st.session_state.selectedCCC = None
-st.session_state.selectedCCC = selectedCCC
+with st.form("four_year_selection"):
 
-if "selectionFYandMajorID" not in st.session_state:
-    st.session_state["selectionFYandMajorID"] = [0]
-if "selectionFYandMajor" not in st.session_state:
-    st.session_state["selectionFYandMajor"] = {}
-    st.session_state["selectionFYandMajor"][0] = {"school": None, "major": None}
+    four_year_selection = st.multiselect(
+    "Select four year universities",
+    app_functions.get_four_year_data(),
+    format_func=app_functions.display_names_codes,
+    disabled=not (bool(year) and bool(cc_option)))
 
-if "artCoursesDict" not in st.session_state:
-    st.session_state["artCoursesDict"] = {}
+    st.form_submit_button("Select majors")
 
-def add_selectbox():
-    new_id = st.session_state["selectionFYandMajorID"][-1] + 1
-    st.session_state["selectionFYandMajorID"].append(new_id)
-    st.session_state["selectionFYandMajor"][new_id] = {"school": None, "major": None}
-    st.rerun()
+with st.form("major_selection"):
+    for fy_school in four_year_selection:
+        st.multiselect(fy_school['name'],
+                       app_functions.get_majors_data(cc_option['id'],fy_school['id'],year_id),
+                       key=fy_school['code'],
+                       format_func=app_functions.display_label_major)
+
+    major_submit = st.form_submit_button("Submit")
 
 #st.write(st.session_state)
 
-for i, id in enumerate(st.session_state.selectionFYandMajorID):
-    tile = st.container(border=False)
-    fourYearCol, majorCol, delCol = tile.columns([5, 5, 1], vertical_alignment="bottom")
+if major_submit:
 
-    with fourYearCol:
+    #Create cc_to_fy_dict
 
-        def getSchoolIndex():
-            if st.session_state.selectionFYandMajor[id]["school"] and f"{id}_four_year" in st.session_state:
-                schoolName = st.session_state[f"{id}_four_year"]
-                schoolIndex = get4YNames().index(schoolName)
-                return schoolIndex
-            else:
-                return None
-        
-        def majorIsSelected():
-            st.session_state.selectionFYandMajor[id]["major"] = None
-            selected_school = School(
-                name=st.session_state[f"{id}_four_year"])
-            selected_school.fillData()
-            st.session_state["selectionFYandMajor"][id]["school"] = selected_school
+    for fy_school in four_year_selection:
+        fy_code = fy_school["code"]
+        major_selection = st.session_state[fy_code]
+        for major in major_selection:
+            major_label = major['label']
+            major_key = major['key']
+            course_articulations = app_functions.get_course_articulations(major_key)
+            for course_articulation in course_articulations:
+                if app_functions.get_articulation_type(course_articulation) not in ["Series", "Course", "Requirements"]:
+                    continue
+                articulated_fy_course = app_functions.get_articulated_fy_course(course_articulation)
+                articulating_cc_courses = app_functions.get_articulating_cc_courses(course_articulation)
 
-        fourYearSelection = st.selectbox(
-            f"Four Year {id}",
-            get4YNames(),
-            key=f"{id}_four_year",
-            index=getSchoolIndex(),
-            placeholder="Select a school",
-            disabled=not bool(selectedCCC.name)
-        )
-        if fourYearSelection:
-            majorIsSelected()
+                #st.write(course_articulation)
+                #st.write(articulated_fy_course)
+                #st.write(articulating_cc_courses)
 
-    with majorCol:
-        #st.write(st.session_state.selectedCCC.id, st.session_state["selectionFYandMajor"][id]["school"].id, year)
-        if st.session_state["selectionFYandMajor"][id]["school"] is not None:
-            majorsDict = getDictOfMajors(st.session_state.selectedCCC.id, st.session_state["selectionFYandMajor"][id]["school"].id, year)
-            majorsList = getListOfMajors(majorsDict)
-            majorsNamesList = getMajorNames(majorsList)
-        else:
-            majorsDict = {}
-            majorsList = []
-            majorsNamesList = []
+                for articulating_cc_course in articulating_cc_courses:
 
-        def getMajorIndex():
-            if st.session_state.selectionFYandMajor[id]["major"]:
-                majorName = st.session_state.selectionFYandMajor[id]["major"].name
-                majorIndex = majorsNamesList.index(majorName)
-                return majorIndex
-            else:
-                return None
-            
-        def getMajorKey(majorName):
-            for major in majorsList:
-                if majorName == major.name:
-                    return major.key
-            return None
-            
-        majorSelection = st.selectbox(
-            f"Major",
-            majorsNamesList,
-            key=f"{id}_major",
-            index=getMajorIndex(),
-            placeholder="Select a major",
-            disabled=not bool(st.session_state.selectionFYandMajor[id]["school"])
-        )
+                    cc_course_names = []
+                    course_conjunction = articulating_cc_course["conjunction"]
+                    if course_conjunction == "Or":
+                        for course in articulating_cc_course["courses"]:
+                            cc_course_names += [course]
+                    else:
+                        cc_course_name = ", ".join(articulating_cc_course["courses"])
+                        cc_course_names += [cc_course_name]
 
-        if majorSelection:
-            majorKey = getMajorKey(majorSelection)
-            selectedMajor = Major(
-                name=majorSelection,
-                key=majorKey)
-            st.session_state["selectionFYandMajor"][id]["major"] = selectedMajor
+                    attributions = articulating_cc_course["attributions"]
 
-    with delCol:
-        if st.button("❌", key=f"{id}_remove") and len(st.session_state["selectionFYandMajorID"]) > 1:
-            del st.session_state["selectionFYandMajor"][id]
-            # Optional cleanup of old keys
-            for k in [f"{id}_four_year", f"{id}_major", f"{id}_remove"]:
-                if k in st.session_state:
-                    del st.session_state[k]
-            st.session_state["selectionFYandMajorID"].pop(i)
-            st.rerun()
+                    for cc_course_name in cc_course_names:
+                        if cc_course_name not in cc_to_fy_dict:
+                            cc_to_fy_dict[cc_course_name] = {}
 
-addFourYearButton = st.button("➕ Add Four Year")
-if addFourYearButton:
-    add_selectbox()
+                        if fy_code not in cc_to_fy_dict[cc_course_name]:
+                            cc_to_fy_dict[cc_course_name][fy_code] = {}
+                        
+                        if major_label not in cc_to_fy_dict[cc_course_name][fy_code]:
+                            cc_to_fy_dict[cc_course_name][fy_code][major_label] = {"course":[], "attributions": []}
+                        
+                        if cc_course_name not in cc_to_fy_dict[cc_course_name][fy_code][major_label]["course"]:
+                            cc_to_fy_dict[cc_course_name][fy_code][major_label]["course"] += [articulated_fy_course]
+                            cc_to_fy_dict[cc_course_name][fy_code][major_label]["course"].sort()
+                        for attribution in attributions:
+                            if attribution not in cc_to_fy_dict[cc_course_name][fy_code][major_label]["attributions"]:
+                                cc_to_fy_dict[cc_course_name][fy_code][major_label]["attributions"] += [attribution]
+                                                                                                        
+    #Make datatable                                                                                                    
+    rows = []
 
-st.write(st.session_state)
+    for cc_course, fys in cc_to_fy_dict.items():
+        row = {cc_code: cc_course}  # Keep first column as single-level
+        for fy, majors_dict in fys.items():
+            for major, details in majors_dict.items():
+                col_course = (fy, major, "Course")
+                col_attr = (fy, major, "Notes")
+                row[col_course] = ", ".join(details["course"])
+                row[col_attr] = ". ".join(details["attributions"])
+        rows.append(row)
 
-articulated = getArticulatingCourses(2024, 3, 117, "d0cae58f-3c0f-4bbe-cc3d-08dc9134ea85")
-#st.write(articulated)
+    df = pd.DataFrame(rows)
 
-# testdict = getListOfMajors(137, 117, 2024)
-# st.dataframe(
-#     testdict,
-#     use_container_width=True,
-#     column_config={"year": st.column_config.TextColumn("Year")},
-# )
+    first_col = df.pop(cc_code)
+
+    df.columns = pd.MultiIndex.from_tuples(df.columns, names=["FY", "Major", "Type"])
+
+    df.insert(0, cc_code, first_col)
+
+    st.dataframe(df)
+
+    st.download_button(
+        label="Download CSV",
+        data=df.to_csv().encode("utf-8"),
+        file_name="data.csv",
+        mime="text/csv",
+        icon=":material/download:",
+    )
