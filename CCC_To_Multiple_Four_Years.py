@@ -29,6 +29,7 @@ cc_option = st.selectbox("CCC",
                          index=None)
 if cc_option:
     cc_code = cc_option["code"]
+    cc_id = cc_option["id"]
 
 with st.form("four_year_selection"):
 
@@ -52,7 +53,6 @@ with st.form("major_selection"):
 #st.write(st.session_state)
 
 if major_submit:
-
     #Create cc_to_fy_dict
 
     for fy_school in four_year_selection:
@@ -125,7 +125,23 @@ if major_submit:
 
     st.dataframe(df)
 
+    #st.write(st.session_state) 
+
+    # Button to Assist URL
+    for fy_school in four_year_selection:
+        fy_code = fy_school["code"]
+        fy_id = fy_school["id"]
+        major_selection = st.session_state[fy_code]
+        for major in major_selection:
+            major_label = major['label']
+            major_key = major['key']
+            st.link_button(f"%s %s" % (fy_code, major_label),
+                        f"https://assist.org/transfer/results?year=%s&institution=%d&agreement=%d&agreementType=to&viewAgreementsOptions=false&view=agreement&viewBy=major&viewSendingAgreements=false&viewByKey=%s"
+                        % (year_id, cc_id,fy_id,major_key))
+
+
     # Download button
+
     st.download_button(
         label="Download CSV",
         data=df.to_csv().encode("utf-8"),
@@ -133,3 +149,4 @@ if major_submit:
         mime="text/csv",
         icon=":material/download:",
     )
+
