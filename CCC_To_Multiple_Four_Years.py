@@ -3,10 +3,12 @@ import pandas as pd
 import requests, json
 import app_functions
 
-
 st.set_page_config(page_title="See articulations from a CCC to multiple four-years",
                    page_icon="📈",
                    layout="wide")
+
+st.title("Assist Planner")
+st.header("Which classes should I take for transfer?")
 
 st.markdown(
         """
@@ -23,7 +25,7 @@ cc_to_fy_dict = {}
 year = st.number_input("Enter start year", min_value=2023, value=2024, step=1)
 year_id = year - 1949
 
-cc_option = st.selectbox("CCC",
+cc_option = st.selectbox("My CCC",
                          app_functions.get_CC_data(),
                          format_func=app_functions.display_names_codes,
                          index=None)
