@@ -125,10 +125,11 @@ if major_submit:
 
     st.dataframe(df)
 
+    # Download button
     st.download_button(
         label="Download CSV",
         data=df.to_csv().encode("utf-8"),
-        file_name="data.csv",
+        file_name=f"%s.csv" % (cc_code),
         mime="text/csv",
         icon=":material/download:",
     )
