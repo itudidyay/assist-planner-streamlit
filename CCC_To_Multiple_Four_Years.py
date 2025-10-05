@@ -22,7 +22,7 @@ st.markdown(
 cc_to_fy_dict = {}
 # {"English 101": {"UCB":[{course:"ENG 01A", attributes:""}]}
 
-year = st.number_input("Enter start year", min_value=2023, value=2024, step=1)
+year = st.number_input("Enter start year", min_value=2023, value=2025, step=1)
 year_id = year - 1949
 
 cc_option = st.selectbox("My CCC",
