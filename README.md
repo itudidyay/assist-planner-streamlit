@@ -4,9 +4,9 @@
 
 This Streamlit app helps California Community College students plan their coursework to transfer across multiple universities.
 
-Based off my earlier project [AssistPlanner](github.com/itudidyay/AssistPlanner), now adapted as a Streamlit web app.
+Based off my earlier project [AssistPlanner](https://github.com/itudidyay/AssistPlanner), now adapted as a Streamlit web app.
 
-assist-planner.streamlit.app
+[assist-planner.streamlit.app](https://assist-planner.streamlit.app)
 
 ### How to run it on your own machine
 
