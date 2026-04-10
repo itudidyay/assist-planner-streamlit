@@ -1,4 +1,4 @@
-# Assist Planner
+# Assist Planner Streamlit App
 
 **Note: Due to API changes as of April 2026, this app does not work anymore.**
 
